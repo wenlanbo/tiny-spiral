@@ -52,6 +52,10 @@
             </div>
             
             <div class="canvas-section">
+                <div id="loadingIndicator" class="loading-section" style="display: none;">
+                    <div class="loading-spinner"></div>
+                    <p>Loading AI model...</p>
+                </div>
                 <canvas id="mainCanvas" width="800" height="600"></canvas>
                 <div class="canvas-controls">
                     <button id="downloadBtn" class="download-btn" style="display: none;">Download Image</button>
@@ -61,8 +65,8 @@
         </main>
     </div>
     
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/deeplab@0.1.2/dist/deeplab.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/deeplab@0.2.1/dist/deeplab.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

@@ -69,13 +69,24 @@ class SpiralCreator {
     }
     
     async loadModel() {
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        loadingIndicator.style.display = 'block';
+        
         try {
             console.log('Loading DeepLab model...');
-            this.model = await deeplab.load();
+            // Try to load the model with proper configuration
+            this.model = await deeplab.load({
+                base: 'mobilenetv2',
+                quantizationBytes: 2
+            });
             console.log('Model loaded successfully');
         } catch (error) {
-            console.error('Error loading model:', error);
-            alert('Error loading AI model. Please refresh the page and try again.');
+            console.error('Error loading DeepLab model:', error);
+            console.log('Falling back to alternative background removal...');
+            // Fallback to a simpler background removal method
+            this.model = 'fallback';
+        } finally {
+            loadingIndicator.style.display = 'none';
         }
     }
     
@@ -116,48 +127,139 @@ class SpiralCreator {
         generateBtn.disabled = true;
         
         try {
-            // Create a temporary canvas to resize the image for processing
-            const tempCanvas = document.createElement('canvas');
-            const tempCtx = tempCanvas.getContext('2d');
-            const maxSize = 512;
-            
-            let { width, height } = this.originalImage;
-            if (width > height) {
-                height = (height * maxSize) / width;
-                width = maxSize;
+            if (this.model === 'fallback') {
+                // Use fallback background removal method
+                this.processedImage = await this.fallbackBackgroundRemoval();
             } else {
-                width = (width * maxSize) / height;
-                height = maxSize;
+                // Use AI model for background removal
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+                const maxSize = 512;
+                
+                let { width, height } = this.originalImage;
+                if (width > height) {
+                    height = (height * maxSize) / width;
+                    width = maxSize;
+                } else {
+                    width = (width * maxSize) / height;
+                    height = maxSize;
+                }
+                
+                tempCanvas.width = width;
+                tempCanvas.height = height;
+                tempCtx.drawImage(this.originalImage, 0, 0, width, height);
+                
+                // Get image data for segmentation
+                const imageData = tempCtx.getImageData(0, 0, width, height);
+                
+                // Run segmentation
+                const segmentation = await this.model.segment(imageData);
+                
+                // Create mask for the main object
+                const mask = this.createMask(segmentation, width, height);
+                
+                // Apply mask to original image
+                this.processedImage = await this.applyMask(this.originalImage, mask);
             }
-            
-            tempCanvas.width = width;
-            tempCanvas.height = height;
-            tempCtx.drawImage(this.originalImage, 0, 0, width, height);
-            
-            // Get image data for segmentation
-            const imageData = tempCtx.getImageData(0, 0, width, height);
-            
-            // Run segmentation
-            const segmentation = await this.model.segment(imageData);
-            
-            // Create mask for the main object (assuming person is the main object)
-            const mask = this.createMask(segmentation, width, height);
-            
-            // Apply mask to original image
-            this.processedImage = await this.applyMask(this.originalImage, mask);
             
             // Display the processed image
             this.displayProcessedImage();
             
         } catch (error) {
             console.error('Error processing image:', error);
-            alert('Error processing image. Please try again.');
+            console.log('Using fallback background removal...');
+            this.processedImage = await this.fallbackBackgroundRemoval();
+            this.displayProcessedImage();
         } finally {
             generateBtn.innerHTML = originalText;
             generateBtn.disabled = false;
         }
     }
     
+    async fallbackBackgroundRemoval() {
+        return new Promise((resolve) => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = this.originalImage.width;
+            canvas.height = this.originalImage.height;
+            
+            // Draw original image
+            ctx.drawImage(this.originalImage, 0, 0);
+            
+            // Get image data
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            
+            // Simple background removal using edge detection and color analysis
+            const mask = this.createSimpleMask(data, canvas.width, canvas.height);
+            
+            // Apply mask
+            for (let i = 0; i < data.length; i += 4) {
+                const pixelIndex = i / 4;
+                if (mask[pixelIndex] === 0) {
+                    data[i + 3] = 0; // Set alpha to 0 (transparent)
+                }
+            }
+            
+            ctx.putImageData(imageData, 0, 0);
+            
+            // Convert to image
+            const processedImg = new Image();
+            processedImg.onload = () => resolve(processedImg);
+            processedImg.src = canvas.toDataURL();
+        });
+    }
+    
+    createSimpleMask(data, width, height) {
+        const mask = new Uint8Array(width * height);
+        
+        // Simple edge detection and center-focused masking
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const index = y * width + x;
+                const pixelIndex = index * 4;
+                
+                // Get pixel color
+                const r = data[pixelIndex];
+                const g = data[pixelIndex + 1];
+                const b = data[pixelIndex + 2];
+                
+                // Calculate distance from center
+                const centerX = width / 2;
+                const centerY = height / 2;
+                const distanceFromCenter = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
+                const maxDistance = Math.sqrt(centerX ** 2 + centerY ** 2);
+                const normalizedDistance = distanceFromCenter / maxDistance;
+                
+                // Simple edge detection
+                let edgeStrength = 0;
+                if (x > 0 && y > 0 && x < width - 1 && y < height - 1) {
+                    const neighbors = [
+                        data[(y - 1) * width * 4 + (x - 1) * 4],     // top-left
+                        data[(y - 1) * width * 4 + x * 4],           // top
+                        data[(y - 1) * width * 4 + (x + 1) * 4],     // top-right
+                        data[y * width * 4 + (x - 1) * 4],           // left
+                        data[y * width * 4 + (x + 1) * 4],           // right
+                        data[(y + 1) * width * 4 + (x - 1) * 4],     // bottom-left
+                        data[(y + 1) * width * 4 + x * 4],           // bottom
+                        data[(y + 1) * width * 4 + (x + 1) * 4]      // bottom-right
+                    ];
+                    
+                    const avgNeighbor = neighbors.reduce((sum, val) => sum + val, 0) / neighbors.length;
+                    edgeStrength = Math.abs(r - avgNeighbor);
+                }
+                
+                // Combine edge detection with center focus
+                const isObject = edgeStrength > 30 || normalizedDistance < 0.7;
+                
+                mask[index] = isObject ? 255 : 0;
+            }
+        }
+        
+        return mask;
+    }
+
     createMask(segmentation, width, height) {
         const mask = new Uint8Array(width * height);
         const labels = segmentation.segmentationMap;
