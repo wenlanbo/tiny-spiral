@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spiral Object Creator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Spiral Object Creator</h1>
+            <p>Upload an image to create a beautiful spiral pattern</p>
+        </header>
+        
+        <main>
+            <div class="upload-section">
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-content">
+                        <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7,10 12,15 17,10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        <p>Click to upload an image</p>
+                        <p class="upload-subtitle">or drag and drop</p>
+                    </div>
+                    <input type="file" id="imageInput" accept="image/*" hidden>
+                </div>
+            </div>
+            
+            <div class="controls-section" id="controlsSection" style="display: none;">
+                <div class="control-group">
+                    <label for="spiralTurns">Spiral Turns:</label>
+                    <input type="range" id="spiralTurns" min="1" max="10" value="3" step="0.5">
+                    <span id="turnsValue">3</span>
+                </div>
+                
+                <div class="control-group">
+                    <label for="objectSize">Object Size:</label>
+                    <input type="range" id="objectSize" min="10" max="100" value="50" step="5">
+                    <span id="sizeValue">50</span>
+                </div>
+                
+                <div class="control-group">
+                    <label for="objectCount">Number of Objects:</label>
+                    <input type="range" id="objectCount" min="20" max="200" value="80" step="10">
+                    <span id="countValue">80</span>
+                </div>
+                
+                <button id="generateSpiral" class="generate-btn">Generate Spiral</button>
+            </div>
+            
+            <div class="canvas-section">
+                <canvas id="mainCanvas" width="800" height="600"></canvas>
+                <div class="canvas-controls">
+                    <button id="downloadBtn" class="download-btn" style="display: none;">Download Image</button>
+                    <button id="resetBtn" class="reset-btn" style="display: none;">Reset</button>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/deeplab@0.1.2/dist/deeplab.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
